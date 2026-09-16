@@ -552,6 +552,7 @@ input[type="checkbox"] {
 }
 .team-box {
   flex: 1;
+  min-width: 200px;
   background: var(--panel-alt);
   border-radius: 7px;
   padding: 10px;
@@ -742,4 +743,148 @@ input[type="checkbox"] {
 .stats-buttons {
   display: flex;
   gap: 8px;
+}
+
+/* ---------- manual/custom pairing slot rows (Queue + Tournament) ---------- */
+
+.manual-slots-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.manual-slot-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.manual-slot-filter {
+  flex: 0 0 84px;
+}
+.custom-team-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.custom-team-row .manual-slot-row {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ---------- stats table horizontal-scroll wrapper ---------- */
+
+.stats-scroll-x {
+  overflow-x: auto;
+}
+.stats-table-inner {
+  min-width: 480px;
+}
+
+/* =========================================================
+   MOBILE / RESPONSIVE
+   Every existing page (index, roster, queue, stats,
+   tournament) was originally laid out assuming a laptop-
+   width screen. These rules retrofit all of them so the
+   admin can run a session entirely from a phone.
+   ========================================================= */
+
+@media (max-width: 860px) {
+  .roster-grid {
+    grid-template-columns: 1fr;
+  }
+  .queue-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  #app,
+  .page {
+    padding: 12px;
+  }
+  .header h1 {
+    font-size: 20px;
+  }
+  .header .meta {
+    font-size: 12px;
+    margin-left: 0;
+    width: 100%;
+  }
+  .nav {
+    flex-wrap: wrap;
+  }
+  .nav a {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .roster-toolbar input[type="text"],
+  .roster-toolbar select,
+  .roster-toolbar .btn {
+    flex: 1 1 100%;
+  }
+
+  .manual-slots-grid {
+    grid-template-columns: 1fr;
+  }
+  .custom-team-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .custom-team-row .manual-slot-row {
+    min-width: 0;
+  }
+  .custom-team-row .btn {
+    width: 100%;
+  }
+
+  .match-vs-row {
+    flex-direction: column;
+  }
+  .match-vs-row .team-box {
+    min-width: 0;
+    width: 100%;
+  }
+  .vs-col {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: 4px 0;
+  }
+
+  .stats-table-inner {
+    min-width: 420px;
+  }
+
+  .start-card {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    gap: 8px;
+  }
+  .header .ver {
+    display: none;
+  }
+  .btn {
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+  .btn.small {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+  .chip {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+  .court-count-row .count {
+    font-size: 24px;
+  }
 }
