@@ -14,7 +14,13 @@ let ui = {
   },
   createSearch: "",
   editingTeamId: null,
-  customDraft: { groupLabel: "", slotA: "", slotB: "" },
+  customDraft: {
+    groupLabel: "",
+    slotA: "",
+    slotB: "",
+    filterA: "any",
+    filterB: "any",
+  },
 };
 
 function persist() {
@@ -162,7 +168,13 @@ function addCustomTeam() {
     t.groups.push(group);
   }
   group.teamIds.push(team.id);
-  ui.customDraft = { groupLabel: label, slotA: "", slotB: "" };
+  ui.customDraft = {
+    groupLabel: label,
+    slotA: "",
+    slotB: "",
+    filterA: ui.customDraft.filterA,
+    filterB: ui.customDraft.filterB,
+  };
   persist();
   render();
 }
@@ -380,7 +392,7 @@ function renderTeamCard(t, team) {
     .join("");
 
   return `
-  <div class="team-box" style="min-width:220px;">
+  <div class="team-box">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
       <div class="label">Team</div>
       <div style="display:flex;gap:6px;">
@@ -434,13 +446,27 @@ function renderSetup() {
       const avail = appState.players.filter(
         (p) => t.participantIds.includes(p.id) && !teamsUsedIds(t).has(p.id),
       );
-      const optA = avail
+      const catOptions = (current) =>
+        `<option value="any" ${current === "any" ? "selected" : ""}>Any</option>` +
+        CATEGORIES.map(
+          (c) =>
+            `<option value="${c}" ${current === c ? "selected" : ""}>${CATEGORY_SHORT[c]}</option>`,
+        ).join("");
+      const availA =
+        ui.customDraft.filterA === "any"
+          ? avail
+          : avail.filter((p) => p.category === ui.customDraft.filterA);
+      const availB =
+        ui.customDraft.filterB === "any"
+          ? avail
+          : avail.filter((p) => p.category === ui.customDraft.filterB);
+      const optA = availA
         .map(
           (p) =>
             `<option value="${p.id}" ${ui.customDraft.slotA === String(p.id) ? "selected" : ""}>${esc(playerOptionLabel(p))}</option>`,
         )
         .join("");
-      const optB = avail
+      const optB = availB
         .map(
           (p) =>
             `<option value="${p.id}" ${ui.customDraft.slotB === String(p.id) ? "selected" : ""}>${esc(playerOptionLabel(p))}</option>`,
@@ -449,10 +475,16 @@ function renderSetup() {
       setupControls = `
         <div class="panel" style="margin-bottom:14px;">
           <div class="filter-label">Add a team</div>
-          <div class="chip-row" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:center;">
-            <input type="text" data-field="group-label" placeholder="Group name (e.g. Couples)" value="${esc(ui.customDraft.groupLabel)}" />
-            <select data-field="slot-a"><option value="">Player 1</option>${optA}</select>
-            <select data-field="slot-b"><option value="">Player 2</option>${optB}</select>
+          <input type="text" data-field="group-label" placeholder="Group name (e.g. Couples)" value="${esc(ui.customDraft.groupLabel)}" style="margin-bottom:8px;" />
+          <div class="custom-team-row">
+            <div class="manual-slot-row">
+              <select data-field="filter-a" class="manual-slot-filter">${catOptions(ui.customDraft.filterA)}</select>
+              <select data-field="slot-a"><option value="">Player 1</option>${optA}</select>
+            </div>
+            <div class="manual-slot-row">
+              <select data-field="filter-b" class="manual-slot-filter">${catOptions(ui.customDraft.filterB)}</select>
+              <select data-field="slot-b"><option value="">Player 2</option>${optB}</select>
+            </div>
             <button class="btn green small" data-action="add-custom-team">+ Add Team</button>
           </div>
         </div>`;
@@ -594,6 +626,16 @@ document.addEventListener("change", (e) => {
       return;
     case "slot-b":
       ui.customDraft.slotB = el.value;
+      render();
+      return;
+    case "filter-a":
+      ui.customDraft.filterA = el.value;
+      ui.customDraft.slotA = "";
+      render();
+      return;
+    case "filter-b":
+      ui.customDraft.filterB = el.value;
+      ui.customDraft.slotB = "";
       render();
       return;
     default:
