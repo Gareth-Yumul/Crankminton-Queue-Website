@@ -7,6 +7,7 @@ let ui = {
   stageFilter: { signature: "any", doublesType: "any" },
   manualOpen: false,
   manualDraft: ["", "", "", ""],
+  manualFilter: ["any", "any", "any", "any"],
   finishChoice: {}, // courtId -> 'team1' | 'team2' | null
   editingMatchKey: null, // "court:3" | "staged:5"
   pairPendingId: null, // waiting-queue one-off pairing in progress
@@ -115,6 +116,7 @@ function proposeStaged() {
 function openManual() {
   ui.manualOpen = true;
   ui.manualDraft = ["", "", "", ""];
+  ui.manualFilter = ["any", "any", "any", "any"];
   render();
 }
 function cancelManual() {
@@ -419,19 +421,33 @@ function renderStagePanel() {
       "Team B - slot 1",
       "Team B - slot 2",
     ];
-    const selects = [0, 1, 2, 3]
-      .map(
-        (i) => `
-      <select data-action="manual-slot" data-index="${i}">
-        <option value="">${labels[i]}</option>
-        ${pool.map((p) => `<option value="${p.id}" ${ui.manualDraft[i] === String(p.id) ? "selected" : ""}>${esc(playerOptionLabel(p))}</option>`).join("")}
-      </select>`,
-      )
+    const catOptions = (current) =>
+      `<option value="any" ${current === "any" ? "selected" : ""}>Any</option>` +
+      CATEGORIES.map(
+        (c) =>
+          `<option value="${c}" ${current === c ? "selected" : ""}>${CATEGORY_SHORT[c]}</option>`,
+      ).join("");
+    const rows = [0, 1, 2, 3]
+      .map((i) => {
+        const catFilter = ui.manualFilter[i];
+        const filteredPool =
+          catFilter === "any"
+            ? pool
+            : pool.filter((p) => p.category === catFilter);
+        return `
+      <div class="manual-slot-row">
+        <select data-action="manual-filter" data-index="${i}" class="manual-slot-filter">${catOptions(catFilter)}</select>
+        <select data-action="manual-slot" data-index="${i}">
+          <option value="">${labels[i]}</option>
+          ${filteredPool.map((p) => `<option value="${p.id}" ${ui.manualDraft[i] === String(p.id) ? "selected" : ""}>${esc(playerOptionLabel(p))}</option>`).join("")}
+        </select>
+      </div>`;
+      })
       .join("");
     manualHtml = `
       <div style="margin-top:10px;">
-        <div class="filter-label">Manual match - bypasses skill/gender rules entirely</div>
-        <div class="chip-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${selects}</div>
+        <div class="filter-label">Manual match - bypasses skill/gender rules entirely. Category filter is just to narrow the list, not a hard rule.</div>
+        <div class="manual-slots-grid">${rows}</div>
         <div class="court-actions">
           <button class="btn green small" data-action="confirm-manual">Stage It</button>
           <button class="btn outline small" data-action="cancel-manual">Cancel</button>
@@ -711,6 +727,11 @@ document.addEventListener("change", (e) => {
   if (el.dataset.action === "manual-slot") {
     setManualSlot(Number(el.dataset.index), el.value);
     return; // select already shows its own value - no re-render needed
+  }
+  if (el.dataset.action === "manual-filter") {
+    ui.manualFilter[Number(el.dataset.index)] = el.value;
+    render();
+    return;
   }
 });
 
