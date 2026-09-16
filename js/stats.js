@@ -126,10 +126,14 @@ function renderPlayersPanel() {
   return `
   <div class="panel">
     <div class="panel-head"><div class="panel-title">All Players (${ranked.length})</div></div>
-    <div class="stats-table-head">
-      <div>#</div><div>Player</div><div>Games</div><div>W</div><div>L</div><div>Win %</div>
+    <div class="stats-scroll-x">
+      <div class="stats-table-inner">
+        <div class="stats-table-head">
+          <div>#</div><div>Player</div><div>Games</div><div>W</div><div>L</div><div>Win %</div>
+        </div>
+        <div class="stats-scroll">${rows}</div>
+      </div>
     </div>
-    <div class="stats-scroll">${rows}</div>
   </div>`;
 }
 
