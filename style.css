@@ -358,10 +358,12 @@ input[type="checkbox"] {
   display: flex;
   gap: 10px;
   margin-bottom: 12px;
+  flex-wrap: wrap;
 }
 .search-wrap {
   position: relative;
   flex: 1;
+  min-width: 0;
 }
 .search-wrap input {
   padding-left: 30px;
@@ -409,6 +411,7 @@ input[type="checkbox"] {
   align-items: center;
   gap: 10px;
   margin-top: 8px;
+  flex-wrap: wrap;
 }
 .player-row-bottom select {
   width: auto;
@@ -887,4 +890,61 @@ input[type="checkbox"] {
   .court-count-row .count {
     font-size: 24px;
   }
+
+  .import-export-row {
+    flex-direction: column;
+  }
+  .search-sort-row .btn {
+    width: 100%;
+  }
+}
+
+/* ---------- tournament: standings + fixtures (Phase 2) ---------- */
+
+.standings-head,
+.standings-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 36px 36px 36px 56px;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.standings-head {
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+.standings-row {
+  border-top: 1px solid var(--line);
+}
+.standings-row.advancing {
+  background: rgba(63, 161, 94, 0.14);
+}
+.standings-row .pname {
+  font-weight: 600;
+}
+
+.fixture-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-alt);
+  border-radius: 6px;
+  padding: 8px 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.fixture-team {
+  flex: 1;
+  min-width: 110px;
+}
+.fixture-team.won {
+  font-weight: 800;
+  color: var(--green);
+}
+.fixture-score {
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
 }
