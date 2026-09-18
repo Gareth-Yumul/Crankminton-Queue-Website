@@ -10,6 +10,7 @@ let ui = {
   manualFilter: ["any", "any", "any", "any"],
   finishChoice: {}, // courtId -> 'team1' | 'team2' | null
   editingMatchKey: null, // "court:3" | "staged:5"
+  editingReservationCourtId: null,
   pairPendingId: null, // waiting-queue one-off pairing in progress
 };
 
@@ -52,6 +53,7 @@ function addCourt() {
     label: `Court ${appState.courts.length + 1}`,
     status: "idle",
     match: null,
+    reservedFor: null,
   });
   persist();
   render();
@@ -59,6 +61,56 @@ function addCourt() {
 
 function removeCourt(id) {
   appState.courts = appState.courts.filter((c) => c.id !== id);
+  persist();
+  render();
+}
+
+function startEditReservation(courtId) {
+  ui.editingReservationCourtId = courtId;
+  render();
+}
+
+// Releases a court hosting a tournament match WITHOUT recording a score -
+// used when a court was assigned by mistake, or a match needs to be pulled
+// off it. The underlying fixture/bracket match itself is untouched; it just
+// goes back to being unassigned on the Tournament page.
+function freeCourtWithoutScore(courtId) {
+  const court = appState.courts.find((c) => c.id === courtId);
+  if (!court) return;
+  if (
+    !confirm(
+      "Free this court without recording a tournament score? You can reassign it from the Tournament page.",
+    )
+  )
+    return;
+  court.status = "idle";
+  court.match = null;
+  persist();
+  render();
+}
+function cancelEditReservation() {
+  ui.editingReservationCourtId = null;
+  render();
+}
+function setCourtReservation(courtId, value) {
+  const court = appState.courts.find((c) => c.id === courtId);
+  if (!court) return;
+  if (!value) {
+    court.reservedFor = null;
+  } else {
+    const [tournamentId, groupId] = value.split(":").map(Number);
+    const groups = activeTournamentGroups(appState);
+    const g = groups.find(
+      (x) => x.tournamentId === tournamentId && x.groupId === groupId,
+    );
+    if (!g) return;
+    court.reservedFor = {
+      tournamentId,
+      groupId,
+      label: `${g.tournamentName} - ${g.groupLabel}`,
+    };
+  }
+  ui.editingReservationCourtId = null;
   persist();
   render();
 }
@@ -183,9 +235,16 @@ function clearUsedPairNext(match) {
 }
 
 function assignStaged(stagedId) {
-  const idleCourt = appState.courts.find((c) => c.status === "idle");
+  const idleCourt = appState.courts.find(
+    (c) => c.status === "idle" && !c.reservedFor,
+  );
   if (!idleCourt) {
-    alert("No idle court yet - keep this staged until one opens up.");
+    const anyIdle = appState.courts.some((c) => c.status === "idle");
+    alert(
+      anyIdle
+        ? "The only idle court(s) right now are reserved for a tournament - free the reservation first, or wait for an unreserved court."
+        : "No idle court yet - keep this staged until one opens up.",
+    );
     return;
   }
   const idx = appState.stagedMatches.findIndex((s) => s.id === stagedId);
@@ -339,6 +398,7 @@ function renderNav() {
 
 function renderMatchDisplay(key, match) {
   const editing = ui.editingMatchKey === key;
+  const isTournamentMatch = !!match.tournamentRef;
   const sigLabel =
     match.signature !== "custom"
       ? SIGNATURES.find((s) => s.id === match.signature)?.label
@@ -349,11 +409,15 @@ function renderMatchDisplay(key, match) {
       : null;
 
   const tags =
-    sigLabel || doublesLabel || match.signature === "custom"
+    sigLabel ||
+    doublesLabel ||
+    match.signature === "custom" ||
+    isTournamentMatch
       ? `<div class="chip-row" style="margin-bottom:8px;">
          ${sigLabel ? `<span class="badge" style="background:var(--panel-alt);color:var(--ink-soft)">${esc(sigLabel)}</span>` : ""}
          ${doublesLabel ? `<span class="badge" style="background:var(--panel-alt);color:var(--blue)">${esc(doublesLabel)}</span>` : ""}
          ${match.signature === "custom" ? `<span class="badge" style="background:var(--panel-alt);color:var(--amber)">Manual match</span>` : ""}
+         ${isTournamentMatch ? `<span class="badge" style="background:var(--panel-alt);color:var(--amber)">&#127942; Tournament match</span>` : ""}
        </div>`
       : "";
 
@@ -373,7 +437,7 @@ function renderMatchDisplay(key, match) {
       .map((id, i) => {
         const p = playerById(appState.players, id);
         if (!p) return "";
-        if (editing) {
+        if (editing && !isTournamentMatch) {
           const opts = optionsFor(id)
             .map(
               (o) =>
@@ -394,7 +458,7 @@ function renderMatchDisplay(key, match) {
       ${team("Team A", match.team1, "team1")}
       <div class="vs-col">
         <div class="vs-label">vs</div>
-        <button class="edit-toggle" data-action="toggle-edit-match" data-key="${key}">${editing ? "Done" : "\u270E Edit"}</button>
+        ${isTournamentMatch ? "" : `<button class="edit-toggle" data-action="toggle-edit-match" data-key="${key}">${editing ? "Done" : "\u270E Edit"}</button>`}
       </div>
       ${team("Team B", match.team2, "team2")}
     </div>`;
@@ -472,7 +536,9 @@ function renderStagePanel() {
 
 function renderStagedList() {
   if (appState.stagedMatches.length === 0) return "";
-  const anyIdle = appState.courts.some((c) => c.status === "idle");
+  const anyIdle = appState.courts.some(
+    (c) => c.status === "idle" && !c.reservedFor,
+  );
   const cards = appState.stagedMatches
     .map(
       (s, i) => `
@@ -498,26 +564,39 @@ function renderCourtCard(court) {
   let body = "";
 
   if (court.status === "inplay" && court.match) {
-    const choice = ui.finishChoice[court.id];
-    body = `
-      ${renderMatchDisplay(`court:${court.id}`, court.match)}
-      ${
-        choice
-          ? `<div class="court-actions">
-             <button class="btn amber small" data-action="finish-match" data-court="${court.id}">&#127942; Confirm ${choice === "team1" ? "Team A" : "Team B"} wins</button>
-             <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}">Back</button>
-           </div>`
-          : `<div class="court-actions">
-             <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}" data-team="team1">Team A won</button>
-             <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}" data-team="team2">Team B won</button>
-           </div>`
-      }`;
+    if (court.match.tournamentRef) {
+      body = `
+        ${renderMatchDisplay(`court:${court.id}`, court.match)}
+        <div class="court-actions">
+          <span style="font-size:12px;color:var(--ink-soft)">Score is entered on the <a href="tournament.html" style="color:var(--amber)">Tournament page</a>, not here.</span>
+        </div>
+        <div class="court-actions">
+          <button class="btn outline small" data-action="free-tournament-court" data-court="${court.id}">Free This Court</button>
+        </div>`;
+    } else {
+      const choice = ui.finishChoice[court.id];
+      body = `
+        ${renderMatchDisplay(`court:${court.id}`, court.match)}
+        ${
+          choice
+            ? `<div class="court-actions">
+               <button class="btn amber small" data-action="finish-match" data-court="${court.id}">&#127942; Confirm ${choice === "team1" ? "Team A" : "Team B"} wins</button>
+               <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}">Back</button>
+             </div>`
+            : `<div class="court-actions">
+               <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}" data-team="team1">Team A won</button>
+               <button class="btn outline small" data-action="set-finish-choice" data-court="${court.id}" data-team="team2">Team B won</button>
+             </div>`
+        }`;
+    }
   }
 
   const timer =
     court.status === "inplay"
       ? `<span class="court-timer" id="timer-${court.id}">0:00</span>`
       : "";
+
+  const reservation = renderReservationLine(court);
 
   return `
   <div class="court-card" style="border-top-color:${stripe}">
@@ -529,7 +608,37 @@ function renderCourtCard(court) {
         ${court.status === "idle" ? `<button class="rm" data-action="remove-court" data-id="${court.id}">&minus;</button>` : ""}
       </div>
     </div>
+    ${reservation}
     ${body}
+  </div>`;
+}
+
+function renderReservationLine(court) {
+  if (ui.editingReservationCourtId === court.id) {
+    const groups = activeTournamentGroups(appState);
+    const options = groups
+      .map(
+        (g) =>
+          `<option value="${g.tournamentId}:${g.groupId}" ${court.reservedFor && court.reservedFor.tournamentId === g.tournamentId && court.reservedFor.groupId === g.groupId ? "selected" : ""}>${esc(g.tournamentName)} - ${esc(g.groupLabel)}</option>`,
+      )
+      .join("");
+    return `
+    <div class="reservation-line">
+      <select data-action="set-reservation" data-court="${court.id}">
+        <option value="">Not reserved</option>
+        ${options}
+      </select>
+      <button class="edit-toggle" data-action="cancel-edit-reservation">Done</button>
+    </div>`;
+  }
+  return `
+  <div class="reservation-line">
+    ${
+      court.reservedFor
+        ? `<span class="badge" style="background:var(--panel-alt);color:var(--amber)">Reserved: ${esc(court.reservedFor.label)}</span>`
+        : `<span style="font-size:11px;color:var(--ink-soft)">Not reserved</span>`
+    }
+    <button class="edit-toggle" data-action="start-edit-reservation" data-court="${court.id}">${court.reservedFor ? "Change" : "Reserve for tournament"}</button>
   </div>`;
 }
 
@@ -708,6 +817,15 @@ document.addEventListener("click", (e) => {
     case "unpair":
       unpair(id);
       break;
+    case "start-edit-reservation":
+      startEditReservation(courtId);
+      break;
+    case "free-tournament-court":
+      freeCourtWithoutScore(courtId);
+      break;
+    case "cancel-edit-reservation":
+      cancelEditReservation();
+      break;
     default:
       break;
   }
@@ -731,6 +849,10 @@ document.addEventListener("change", (e) => {
   if (el.dataset.action === "manual-filter") {
     ui.manualFilter[Number(el.dataset.index)] = el.value;
     render();
+    return;
+  }
+  if (el.dataset.action === "set-reservation") {
+    setCourtReservation(Number(el.dataset.court), el.value);
     return;
   }
 });
