@@ -99,7 +99,13 @@ function hasActiveSession() {
 function defaultState(courtCount) {
   const courts = [];
   for (let i = 1; i <= courtCount; i++) {
-    courts.push({ id: i, label: `Court ${i}`, status: "idle", match: null });
+    courts.push({
+      id: i,
+      label: `Court ${i}`,
+      status: "idle",
+      match: null,
+      reservedFor: null,
+    });
   }
   return {
     players: [],
@@ -136,11 +142,32 @@ function normalizeState(s) {
   s.tournaments.forEach((t) => {
     if (!t.customMerges)
       t.customMerges = { advUpper: false, upperLower: false, lowerBeg: false };
+    if (typeof t.pointTarget !== "number") t.pointTarget = 21;
+    if (typeof t.advanceCount !== "number") t.advanceCount = 2;
+    if (!Array.isArray(t.fixtures)) t.fixtures = [];
+    if (!t.brackets) t.brackets = {};
+    if (!t.bo3Rounds) t.bo3Rounds = { Final: true };
+    (t.teams || []).forEach((tm) => {
+      if (typeof tm.forfeited !== "boolean") tm.forfeited = false;
+    });
+    (t.fixtures || []).forEach((f) => {
+      if (typeof f.forfeit === "undefined") f.forfeit = null;
+    });
+    Object.values(t.brackets).forEach((b) => {
+      (b.rounds || []).forEach((round) =>
+        round.forEach((m) => {
+          if (!Array.isArray(m.games)) m.games = [];
+          if (!m.format) m.format = "single";
+          if (typeof m.forfeit === "undefined") m.forfeit = null;
+        }),
+      );
+    });
   });
   (s.logs || []).forEach((l) => {
     if (typeof l.time !== "number") l.time = null;
   });
   s.courts.forEach((c) => {
+    if (typeof c.reservedFor === "undefined") c.reservedFor = null;
     if (c.status === "proposed" && c.match) {
       s.stagedMatches.push({ id: s.nextStagedId++, match: c.match });
       c.status = "idle";
@@ -615,6 +642,7 @@ function generateTournamentTeams(
       const team = {
         id: nextTeamIdRef.value++,
         players: [shuffled[i].id, shuffled[i + 1].id],
+        forfeited: false,
       };
       teams.push(team);
       groupTeamIds.push(team.id);
@@ -630,3 +658,147 @@ function generateTournamentTeams(
 
   return { groups, teams, unpaired };
 }
+
+// ---------- tournament helpers (Phase 3: knockout bracket) ----------
+
+// Standard recursive bracket-seeding order: keeps seed 1 and seed 2 on
+// opposite halves of the bracket (so they can only meet in the final), and
+// recursively does the same within each half. n must be a power of 2.
+function seedOrder(n) {
+  if (n === 1) return [1];
+  const half = seedOrder(n / 2);
+  const order = [];
+  half.forEach((s) => {
+    order.push(s);
+    order.push(n + 1 - s);
+  });
+  return order;
+}
+
+// Builds a single-elimination bracket from a group's standings: takes the
+// top `advanceCount` teams, seeds them (byes to the top seeds if the count
+// isn't a clean power of 2), and lays out every round up front - later
+// rounds start with unknown (null) teams that fill in as earlier rounds
+// resolve. Returns null if there isn't enough to bracket (fewer than 2
+// advancing teams).
+// Note: calls computeStandings(), which is defined in tournament.js, not
+// here - fine since this is only ever invoked from tournament.html after
+// both scripts have loaded, but it means this function can't be called from
+// any other page.
+function generateKnockoutBracket(t, groupId, nextIdRef, bo3Rounds) {
+  const standings = computeStandings(t, groupId);
+  const advancing = standings.slice(0, t.advanceCount).map((r) => r.teamId);
+  const n = advancing.length;
+  if (n < 2) return null;
+
+  let bracketSize = 1;
+  while (bracketSize < n) bracketSize *= 2;
+  const order = seedOrder(bracketSize);
+  const slots = order.map((seedNum) => advancing[seedNum - 1] || null);
+
+  const numRounds = Math.log2(bracketSize);
+  const rounds = [];
+  const fmt = (r) =>
+    bo3Rounds && bo3Rounds[roundLabel(r, numRounds)] ? "bo3" : "single";
+
+  const round0 = [];
+  const round0Format = fmt(0);
+  for (let i = 0; i < slots.length; i += 2) {
+    const a = slots[i],
+      b = slots[i + 1];
+    const isBye = !a || !b;
+    round0.push({
+      id: nextIdRef.value++,
+      teamAId: a,
+      teamBId: b,
+      scoreA: null,
+      scoreB: null,
+      games: [],
+      format: round0Format,
+      forfeit: null,
+      winnerId: isBye ? a || b || null : null,
+      isBye,
+    });
+  }
+  rounds.push(round0);
+
+  for (let r = 1; r < numRounds; r++) {
+    const count = rounds[r - 1].length / 2;
+    const format = fmt(r);
+    const round = [];
+    for (let i = 0; i < count; i++) {
+      round.push({
+        id: nextIdRef.value++,
+        teamAId: null,
+        teamBId: null,
+        scoreA: null,
+        scoreB: null,
+        games: [],
+        format,
+        forfeit: null,
+        winnerId: null,
+        isBye: false,
+      });
+    }
+    rounds.push(round);
+  }
+
+  const bracket = { seedTeamIds: advancing, rounds };
+  advanceBracket(bracket);
+  return bracket;
+}
+
+// Recomputes every round after the first from the winners of the round
+// before it. Safe to call after any score is saved - fully idempotent
+// rather than incrementally patched, so there's no risk of a stale slot.
+function advanceBracket(bracket) {
+  for (let r = 0; r < bracket.rounds.length - 1; r++) {
+    const round = bracket.rounds[r];
+    const nextRound = bracket.rounds[r + 1];
+    for (let i = 0; i < round.length; i += 2) {
+      const feederA = round[i],
+        feederB = round[i + 1];
+      const nextMatch = nextRound[i / 2];
+      nextMatch.teamAId = feederA.winnerId || null;
+      nextMatch.teamBId = feederB.winnerId || null;
+    }
+  }
+}
+
+function roundLabel(roundIndex, numRounds) {
+  const remaining = numRounds - roundIndex;
+  if (remaining === 1) return "Final";
+  if (remaining === 2) return "Semifinal";
+  if (remaining === 3) return "Quarterfinal";
+  return `Round of ${Math.pow(2, remaining)}`;
+}
+
+function bracketChampionId(bracket) {
+  const finalRound = bracket.rounds[bracket.rounds.length - 1];
+  return finalRound[0] ? finalRound[0].winnerId : null;
+}
+
+// Lists every group, across every non-complete tournament, that a court
+// could reasonably be reserved for - used by Queue's reservation picker.
+function activeTournamentGroups(state) {
+  const list = [];
+  (state.tournaments || []).forEach((t) => {
+    if (t.status === "complete") return;
+    t.groups.forEach((g) => {
+      list.push({
+        tournamentId: t.id,
+        tournamentName: t.name,
+        groupId: g.id,
+        groupLabel: g.label,
+      });
+    });
+  });
+  return list;
+}
+
+// ---------- tournament helpers (Phase 2: schedule, scoring, standings) ----------
+// Note: computeStandings, generateRoundRobinFixtures, and groupIsComplete
+// for THIS app's actual fixture shape live in tournament.js, not here - it
+// owns the fixture/bracket field shapes end to end. Keeping a second,
+// differently-shaped copy here was dead code (silently shadowed by
+// tournament.js's own definitions at runtime) and just confusing to read.
