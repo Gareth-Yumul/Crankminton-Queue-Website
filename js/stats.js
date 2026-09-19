@@ -88,6 +88,7 @@ function renderNav() {
     <a href="queue.html">Queue</a>
     <a href="stats.html" class="active">Game Stats</a>
     <a href="tournament.html">Tournament</a>
+    <a href="finance.html">Finance</a>
   </div>`;
 }
 
