@@ -404,10 +404,12 @@ function renderNav() {
 function renderMatchDisplay(key, match) {
   const editing = ui.editingMatchKey === key;
   const isTournamentMatch = !!match.tournamentRef;
-  const sigLabel =
+  const sigEntry =
     match.signature !== "custom"
-      ? SIGNATURES.find((s) => s.id === match.signature)?.label
+      ? SIGNATURES.find((s) => s.id === match.signature)
       : null;
+  const sigLabel = sigEntry?.label || null;
+  const isFallbackTier = sigEntry?.tier === 2;
   const doublesLabel =
     match.doublesType !== "any" && match.doublesType !== "custom"
       ? DOUBLES_TYPES.find((d) => d.id === match.doublesType)?.label
@@ -419,7 +421,7 @@ function renderMatchDisplay(key, match) {
     match.signature === "custom" ||
     isTournamentMatch
       ? `<div class="chip-row" style="margin-bottom:8px;">
-         ${sigLabel ? `<span class="badge" style="background:var(--panel-alt);color:var(--ink-soft)">${esc(sigLabel)}</span>` : ""}
+         ${sigLabel ? `<span class="badge" style="background:${isFallbackTier ? "rgba(224,90,78,0.18)" : "var(--panel-alt)"};color:${isFallbackTier ? "var(--red)" : "var(--ink-soft)"}">${isFallbackTier ? "&#9888; " : ""}${esc(sigLabel)}</span>` : ""}
          ${doublesLabel ? `<span class="badge" style="background:var(--panel-alt);color:var(--blue)">${esc(doublesLabel)}</span>` : ""}
          ${match.signature === "custom" ? `<span class="badge" style="background:var(--panel-alt);color:var(--amber)">Manual match</span>` : ""}
          ${isTournamentMatch ? `<span class="badge" style="background:var(--panel-alt);color:var(--amber)">&#127942; Tournament match</span>` : ""}
@@ -471,10 +473,12 @@ function renderMatchDisplay(key, match) {
 
 function renderStagePanel() {
   const f = ui.stageFilter;
-  const sigChips = SIGNATURES.map(
-    (s) =>
-      `<button class="chip ${f.signature === s.id ? "active" : ""}" data-action="set-stage-filter" data-key="signature" data-value="${s.id}">${esc(s.label)}</button>`,
-  ).join("");
+  const sigChips = SIGNATURES.filter((s) => s.id === "any" || s.tier === 1)
+    .map(
+      (s) =>
+        `<button class="chip ${f.signature === s.id ? "active" : ""}" data-action="set-stage-filter" data-key="signature" data-value="${s.id}">${esc(s.label)}</button>`,
+    )
+    .join("");
   const doublesChips = DOUBLES_TYPES.map(
     (d) =>
       `<button class="chip ${f.doublesType === d.id ? "active" : ""}" data-action="set-stage-filter" data-key="doublesType" data-value="${d.id}">${esc(d.label)}</button>`,
