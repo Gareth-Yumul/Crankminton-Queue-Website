@@ -948,3 +948,135 @@ input[type="checkbox"] {
   min-width: 20px;
   text-align: center;
 }
+
+/* ---------- court reservations (Phase 3) ---------- */
+
+.reservation-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.reservation-line select {
+  width: auto;
+  min-width: 180px;
+}
+
+/* ---------- tournament: bracket visualization (Phase 4) ---------- */
+
+.bracket-scroll {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.bracket-tree {
+  display: flex;
+  align-items: stretch;
+  gap: 28px;
+  min-width: max-content;
+}
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  min-width: 240px;
+  gap: 14px;
+}
+.bracket-round-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* .bracket-match is a positioning wrapper only - the actual card look
+   (background, padding, radius) stays on the reused .fixture-row inside it,
+   so scored/bye/TBD matches all render as the same visual card. */
+.bracket-match {
+  position: relative;
+}
+.bracket-match .fixture-row {
+  flex-wrap: wrap;
+}
+.bracket-match::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -28px;
+  width: 28px;
+  height: 1px;
+  background: var(--line);
+}
+.bracket-match.final-round::after {
+  display: none;
+}
+
+.bracket-champion-banner {
+  text-align: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--amber);
+  background: var(--panel-alt);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+@media (max-width: 700px) {
+  .bracket-round {
+    min-width: 200px;
+  }
+  .bracket-match::after {
+    right: -18px;
+    width: 18px;
+  }
+  .bracket-tree {
+    gap: 18px;
+  }
+}
+
+/* ---------- finance page ---------- */
+
+.finance-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px 14px;
+}
+.finance-stat-label {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.finance-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.finance-progress-track {
+  height: 8px;
+  background: var(--panel-alt);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.finance-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 4px;
+}
+
+.finance-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 700px) {
+  .finance-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .finance-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
