@@ -61,6 +61,8 @@ function addPlayer() {
     pairNextWith: null,
     partnerHistory: [],
     opponentHistory: [],
+    financeCheckedIn: false,
+    paid: false,
     gamesPlayed: 0,
     wins: 0,
     losses: 0,
@@ -190,6 +192,8 @@ function runImport() {
       pairNextWith: null,
       partnerHistory: [],
       opponentHistory: [],
+      financeCheckedIn: false,
+      paid: false,
       gamesPlayed: 0,
       wins: 0,
       losses: 0,
@@ -231,6 +235,8 @@ function addTestPlayers(count) {
       pairNextWith: null,
       partnerHistory: [],
       opponentHistory: [],
+      financeCheckedIn: false,
+      paid: false,
       gamesPlayed: 0,
       wins: 0,
       losses: 0,
@@ -261,6 +267,7 @@ function renderNav() {
     <a href="queue.html">Queue</a>
     <a href="stats.html">Game Stats</a>
     <a href="tournament.html">Tournament</a>
+    <a href="finance.html">Finance</a>
   </div>`;
 }
 
