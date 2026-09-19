@@ -118,7 +118,7 @@ function setCourtReservation(courtId, value) {
 function endSession() {
   if (
     !confirm(
-      "End session? Courts clear, staged matches are dropped, everyone gets unqueued, and standing partner/rest/pairing flags reset. Roster and stats stay.",
+      "End session? Courts clear, staged matches are dropped, everyone gets unqueued, standing partner/rest/pairing flags reset, and finance check-ins/payments reset (court rate, shuttle price, and currency stay). Roster and stats stay.",
     )
   )
     return;
@@ -133,7 +133,11 @@ function endSession() {
     p.resting = false;
     p.pairNextWith = null;
     p.partnerId = null;
+    p.financeCheckedIn = false;
+    p.paid = false;
   });
+  appState.finance.totalHours = 0;
+  appState.finance.shuttleCount = 0;
   ui.finishChoice = {};
   ui.editingMatchKey = null;
   ui.manualOpen = false;
@@ -393,6 +397,7 @@ function renderNav() {
     <a href="queue.html" class="active">Queue</a>
     <a href="stats.html">Game Stats</a>
     <a href="tournament.html">Tournament</a>
+    <a href="finance.html">Finance</a>
   </div>`;
 }
 
