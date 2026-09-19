@@ -118,6 +118,13 @@ function defaultState(courtCount) {
     nextLogId: 1,
     tournaments: [],
     nextTournamentId: 1,
+    finance: {
+      currency: "AED",
+      ratePerHour: 0, // persists across sessions - court rental rate rarely changes
+      pricePerShuttle: 0, // persists across sessions
+      totalHours: 0, // resets each session
+      shuttleCount: 0, // resets each session
+    },
   };
 }
 
@@ -134,7 +141,17 @@ function normalizeState(s) {
     if (!Array.isArray(p.opponentHistory)) p.opponentHistory = [];
     if (typeof p.queuedSince === "undefined")
       p.queuedSince = p.queued ? Date.now() : null;
+    if (typeof p.financeCheckedIn !== "boolean") p.financeCheckedIn = false;
+    if (typeof p.paid !== "boolean") p.paid = false;
   });
+  if (!s.finance)
+    s.finance = {
+      currency: "AED",
+      ratePerHour: 0,
+      pricePerShuttle: 0,
+      totalHours: 0,
+      shuttleCount: 0,
+    };
   if (!Array.isArray(s.stagedMatches)) s.stagedMatches = [];
   if (typeof s.nextStagedId !== "number") s.nextStagedId = 1;
   if (!Array.isArray(s.tournaments)) s.tournaments = [];
