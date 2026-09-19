@@ -32,32 +32,64 @@ const DOUBLES_TYPES = [
 // no more Advance+UpperInt facing off against UpperInt+UpperInt.
 const SIGNATURES = [
   { id: "any", label: "Any" },
-  { id: "adv-adv", label: "Adv + Adv", pair: ["Advance", "Advance"] },
+  // Tier 1: preferred compositions - same-tier and adjacent-tier only.
+  { id: "adv-adv", label: "Adv + Adv", pair: ["Advance", "Advance"], tier: 1 },
   {
     id: "upper-upper",
     label: "Upper + Upper",
     pair: ["Upper Intermediate", "Upper Intermediate"],
+    tier: 1,
   },
   {
     id: "lower-lower",
     label: "Lower + Lower",
     pair: ["Lower Intermediate", "Lower Intermediate"],
+    tier: 1,
   },
-  { id: "beg-beg", label: "Beg + Beg", pair: ["Beginner", "Beginner"] },
+  {
+    id: "beg-beg",
+    label: "Beg + Beg",
+    pair: ["Beginner", "Beginner"],
+    tier: 1,
+  },
   {
     id: "adv-upper",
     label: "Adv + Upper",
     pair: ["Advance", "Upper Intermediate"],
+    tier: 1,
   },
   {
     id: "upper-lower",
     label: "Upper + Lower",
     pair: ["Upper Intermediate", "Lower Intermediate"],
+    tier: 1,
   },
   {
     id: "lower-beg",
     label: "Lower + Beg",
     pair: ["Lower Intermediate", "Beginner"],
+    tier: 1,
+  },
+  // Tier 2: wide-gap fallback compositions - only used by "Any" when NO tier-1
+  // composition is possible right now. Not offered as their own filter chips -
+  // reaching them on purpose is what Manual match is for.
+  {
+    id: "adv-lower",
+    label: "Adv + Lower (wide gap)",
+    pair: ["Advance", "Lower Intermediate"],
+    tier: 2,
+  },
+  {
+    id: "adv-beg",
+    label: "Adv + Beg (wide gap)",
+    pair: ["Advance", "Beginner"],
+    tier: 2,
+  },
+  {
+    id: "upper-beg",
+    label: "Upper + Beg (wide gap)",
+    pair: ["Upper Intermediate", "Beginner"],
+    tier: 2,
   },
 ];
 
@@ -482,17 +514,27 @@ function proposeAnySignature(state, doublesType) {
     if (result) return result;
   }
 
-  let best = null;
-  SIGNATURES.filter((s) => s.id !== "any").forEach((sig) => {
-    const result = proposeForSignature(state, sig.id, doublesType);
-    if (!result) return;
-    const four = [...result.team1, ...result.team2].map((id) =>
-      playerById(state.players, id),
-    );
-    const avgGames = four.reduce((sum, p) => sum + p.gamesPlayed, 0) / 4;
-    if (!best || avgGames < best.avgGames) best = { avgGames, match: result };
-  });
-  return best ? best.match : null;
+  function scanTier(tier) {
+    let best = null;
+    SIGNATURES.filter((s) => s.tier === tier).forEach((sig) => {
+      const result = proposeForSignature(state, sig.id, doublesType);
+      if (!result) return;
+      const four = [...result.team1, ...result.team2].map((id) =>
+        playerById(state.players, id),
+      );
+      const avgGames = four.reduce((sum, p) => sum + p.gamesPlayed, 0) / 4;
+      if (!best || avgGames < best.avgGames) best = { avgGames, match: result };
+    });
+    return best;
+  }
+
+  // Tier 1 (preferred compositions) first, with zero fallback within it - a
+  // wide-gap tier-2 match is only ever considered when NOT ONE tier-1
+  // composition is possible right now.
+  const tier1 = scanTier(1);
+  if (tier1) return tier1.match;
+  const tier2 = scanTier(2);
+  return tier2 ? tier2.match : null;
 }
 
 // Randomized order to try concrete gender styles in when the admin left the
